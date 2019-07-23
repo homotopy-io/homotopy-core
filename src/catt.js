@@ -71,6 +71,65 @@ class CattLet extends CattDefn {
 
 }
 
+class PrettyPrinter {
+
+    prettyPrintTerm(tm) {
+	if (tm instanceof CattVar) {
+	    return tm.ident;
+	} else if (tm instanceof CattSubst) {
+
+	    // A substitution is just a list of terms, so iterate
+	    // over the list, printing the terms, then apply them
+	    // to the base term.
+
+	    let subStr = "";
+
+	    tm.subst.forEach(function(el) {
+		substStr += " " + prettyPrintTerm(el) 
+	    })
+	    
+	    return prettyPrintTerm(tm.tm) + subStr
+
+	} else {
+	    return "unknown_term";
+	}
+    }
+    
+    prettyPrintType(ty) {
+	if (ty instanceof CattOb) {
+	    return "*";
+	} else if (ty instanceof CattArrow) {
+	    return prettyPrintTerm(ty.src) + " -> " + prettyPrintTerm(ty.tgt);
+	} else {
+	    return "unknown_type";
+	}
+    }
+
+    prettyPrintCtx(ctx) {
+	// Generate the context string
+	let ctxStr = "";
+	let varCount = 0;
+	ctx.forEach(function(el) {
+	    ctxStr += " (" + "x" + varCount + " : " + prettyPrintType(el) + ")"
+	})
+	return ctxStr;
+    }
+    
+    prettyPrintDef(def) {
+	if (def instanceof CattCoh) {
+	    return "coh " + def.ident + prettyPrintCtx(def.pd) +
+		" : " + prettyPrintType(def.ty);
+	} else if (def instanceof CattLet) {
+	    return "let " + def.ident + prettyPrintCtx(def.ctx) +
+		" : " + prettyPrintType(def.ty) +
+		" := " + prettyPrintTerm(def.tm);
+	} else {
+	    return "unknown_def";
+	}
+    }
+    
+}
+
 class TypeChecker {
 
     // Typechecking routines for Catt Syntax
@@ -79,6 +138,11 @@ class TypeChecker {
 
 class Interpreter {
 
+    contructor() {
+	this.env = [];
+    }
+
+    
     // interpret : Sig -> Diagram -> Nat -> Nat -> CattLet
     interpret(sig, dia, n /* diagram dimension */, k /* promised to have unique content at k levels */) {
 
@@ -93,11 +157,11 @@ class Interpreter {
 
     interpret_1(sig, dia, k) {
 
-        if (k == 1) {
-            return interpret_1_usc(sig, dia);
-        }
+        // if (k == 1) {
+        //     return interpret_1_usc(sig, dia);
+        // }
 
-        dia_l = dia.data.length;
+        // dia_l = dia.data.length;
 
         /* explode */
 
