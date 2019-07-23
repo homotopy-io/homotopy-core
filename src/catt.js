@@ -1,4 +1,6 @@
-import { assert } from "@firebase/util";
+//import { assert } from "@firebase/util";
+import { _assert } from "~/util/debug";
+import { Diagram } from "~/diagram";
 
 
 export class CattType {
@@ -7,17 +9,17 @@ export class CattType {
   
 }
 
-class CattObject extends CattType {
+export class CattObject extends CattType {
 
     constructor() { }
 
 }
 
-class CattArrow extends CattType {
+export class CattArrow extends CattType {
 
     constructor(src, tgt) { 
-        assert(src instanceof CattType)
-        assert(src instanceof CattType)
+        _assert(src instanceof CattType)
+        _assert(src instanceof CattType)
 
         this.src = src
         this.tgt = tgt
@@ -25,11 +27,11 @@ class CattArrow extends CattType {
 
 }
 
-class CattTerm {
+export class CattTerm {
 
 }
 
-class CattVar extends CattTerm {
+export class CattVar extends CattTerm {
 
     constructor(ident) {
         this.ident = ident
@@ -37,7 +39,7 @@ class CattVar extends CattTerm {
 
 }
 
-class CattSubst extends CattTerm {
+export class CattSubst extends CattTerm {
 
     constructor(tm, subst) {
         this.tm = tm
@@ -46,11 +48,11 @@ class CattSubst extends CattTerm {
 
 }
 
-class CattDefn {
+export class CattDefn {
     constructor() {}
 }
 
-class CattCoh extends CattDefn {
+export class CattCoh extends CattDefn {
 
     constructor(ident, pd, ty) {
         this.ident = ident
@@ -60,7 +62,7 @@ class CattCoh extends CattDefn {
 
 }
 
-class CattLet extends CattDefn {
+export class CattLet extends CattDefn {
 
     constructor(ident, ctx, ty, tm) {
         this.ident = ident
@@ -71,7 +73,7 @@ class CattLet extends CattDefn {
 
 }
 
-class PrettyPrinter {
+export class PrettyPrinter {
 
     prettyPrintTerm(tm) {
 	if (tm instanceof CattVar) {
@@ -130,27 +132,30 @@ class PrettyPrinter {
     
 }
 
-class TypeChecker {
+export class TypeChecker {
 
     // Typechecking routines for Catt Syntax
 
 }
 
-class Interpreter {
+export class Interpreter {
 
     contructor() {
-	this.env = [];
+    	this.env = [];
     }
 
-    
+    interpret(sig, dia) {
+    	return this.interpret_rec(sig, dia, dia.n, 0);
+    }
+
     // interpret : Sig -> Diagram -> Nat -> Nat -> CattLet
-    interpret(sig, dia, n /* diagram dimension */, k /* promised to have unique content at k levels */) {
+    interpret_rec(sig, dia, n /* diagram dimension */, k /* promised to have unique content at k levels */) {
 
         _assert(dia.n == n);
         // _assert to verify k
 
         if (n == 1) {
-            return interpret_1(sig, dia, k);
+            return this.interpret_1(sig, dia, k);
         }
 
     }
@@ -175,7 +180,7 @@ class Interpreter {
         }
 
         // interpret
-        let interpretations = components.map(d => this.interpret(sig, d, 1));
+        let interpretations = components.map(d => this.interpret_1_usc(sig, d, 1));
 
         // paste
         let coh = this.gen_arrow_comp(dia_l);
@@ -186,6 +191,20 @@ class Interpreter {
     }
 
     interpret_1_usc(sig, dia) {
+
+    	let source_type = dia.data[0].forward_limit.source_type;
+    	let central_type = dia.data[0].forward_limit.target_type;
+    	let target_type = dia.data[0].backward_limit.source_type;
+
+    	if (source_type == central_type) {
+    		_assert(central_type == target_type);
+    		// Identity-like
+    		return; // Return an identity coherence
+
+    	} else {
+    		// Algebraic 1-generator
+    		return; // return the name of central_type
+    	}
         
 
     }

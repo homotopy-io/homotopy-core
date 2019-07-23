@@ -19,3 +19,6 @@ export { Boundary };
 
 import * as Matches from "./matches";
 export { Matches };
+
+import * as Catt from "./catt";
+export { Catt };
