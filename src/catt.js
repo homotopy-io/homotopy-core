@@ -80,7 +80,10 @@ class TypeChecker {
 class Interpreter {
 
     // interpret : Sig -> Diagram -> Nat -> Nat -> CattLet
-    interpret(sig, dia, n, k) {
+    interpret(sig, dia, n /* diagram dimension */, k /* promised to have unique content at k levels */) {
+
+        _assert(dia.n == n);
+        // _assert to verify k
 
         if (n == 1) {
             return interpret_1(sig, dia, k);
@@ -96,14 +99,25 @@ class Interpreter {
 
         dia_l = dia.data.length;
 
-        // explode
+        /* explode */
+
+        let components = [];
+        let source = dia.source;
+        let n = dia.n;
+        for (let i=0; i<dia.data.length; i++) {
+            let data = dia.data[i];
+            components.push(new Diagram({ n, source, data }));
+            source = source.rewrite(data);
+        }
 
         // interpret
-        let int_array = ...;
+        let interpretations = components.map(d => this.interpret(sig, d, 1));
 
         // paste
-
         let coh = this.gen_arrow_comp(dia_l);
+
+        // return final interpretation
+        return;
 
     }
 
