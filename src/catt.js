@@ -5,13 +5,13 @@ import { Diagram } from "~/diagram";
 
 export class CattType {
 
-    constructor() {}
+    constructor() { }
   
 }
 
 export class CattObject extends CattType {
 
-    constructor() { }
+    constructor() { super() }
 
 }
 
@@ -21,6 +21,7 @@ export class CattArrow extends CattType {
         _assert(src instanceof CattType)
         _assert(src instanceof CattType)
 
+	super()
         this.src = src
         this.tgt = tgt
     }
@@ -34,6 +35,7 @@ export class CattTerm {
 export class CattVar extends CattTerm {
 
     constructor(ident) {
+	super()
         this.ident = ident
     }
 
@@ -42,6 +44,7 @@ export class CattVar extends CattTerm {
 export class CattSubst extends CattTerm {
 
     constructor(tm, subst) {
+	super()
         this.tm = tm
         this.subst = subst
     }
@@ -55,6 +58,7 @@ export class CattDefn {
 export class CattCoh extends CattDefn {
 
     constructor(ident, pd, ty) {
+	super()
         this.ident = ident
         this.pd = pd
         this.ty = ty
@@ -65,6 +69,7 @@ export class CattCoh extends CattDefn {
 export class CattLet extends CattDefn {
 
     constructor(ident, ctx, ty, tm) {
+	super()
         this.ident = ident
         this.ctx = ctx
         this.ty = ty
@@ -138,12 +143,27 @@ export class TypeChecker {
 
 }
 
+export class GridGenerator {
+
+    // dims: an array of integers [k_i] with k_i > 0 for all i.
+    //       these specify the number of cells glued along the
+    //       faces of dimension i.
+    gen_grid_context(dims) {
+    }
+    
+}
+
 export class Interpreter {
 
     contructor() {
-    	this.env = [];
+	
+    	this.env = { };
+
+	env.id = new CattCoh("id", [ new CattObj ], new CattArrow(new CattVar(0), new CattVar(0)) )
+	
     }
 
+    
     interpret(sig, dia) {
     	return this.interpret_rec(sig, dia, dia.n, 0);
     }
@@ -197,10 +217,13 @@ export class Interpreter {
     	let target_type = dia.data[0].backward_limit.source_type;
 
     	if (source_type == central_type) {
-    		_assert(central_type == target_type);
-    		// Identity-like
-    		return; // Return an identity coherence
+    	    _assert(central_type == target_type);
+    	    // Identity-like
 
+	    // let def = new CattLet(central_type, ???, ???, ???);
+
+	    return; // Return an identity coherence
+	    
     	} else {
     		// Algebraic 1-generator
     		return; // return the name of central_type
@@ -215,12 +238,12 @@ export class Interpreter {
         let r = this.gen_arrow_comp_ctx(n - 1);
         let y;
         if (n == 1) {
-            y = r[0];
+	    y = 0
         } else {
-            y = r[r.length - 2];
+	    y = r.length - 2
         }
         let z = new CattObject();
-        let arr = new CattType(r, z);
+        let arr = new CattArrow(new CattVar(y), new CattVar(r.length));
         r.push(z, arr);
         return r;
     }
@@ -230,11 +253,11 @@ export class Interpreter {
         let ctx = gen_arrow_comp_ctx(n)
         let tgt_tm;
         if (n == 0) {
-            tgt_tm = ctx[0];
+            tgt_tm = 0;
         } else {
-            tgt_tm = ctx[ctx.length - 2];
+            tgt_tm = ctx.length - 2;
         }
-        let coh = new CattCoh("comp_1_" + n, ctx, new CattType(ctx[0], tgt_tm));
+        let coh = new CattCoh("comp_1_" + n, ctx, new CattArrow(new CattVar(0), new CattVar(tgt_tm)));
         return coh;
     }
 
