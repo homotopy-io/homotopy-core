@@ -1,5 +1,5 @@
 //
-// syntax.mjs - Catt syntax definitions
+// catt-syntax.mjs - Catt syntax definitions
 //
 
 
@@ -137,7 +137,7 @@ export function prettyPrintDef(def) {
 	return "coh " + def.ident + " " + prettyPrintCtx(def.pd) +
 	    " : " + prettyPrintType(def.ty);
     } else if (def instanceof CattLet) {
-	return "let " + def.ident + prettyPrintCtx(def.ctx) +
+	return "let " + def.ident + " " + prettyPrintCtx(def.ctx) +
 	    " : " + prettyPrintType(def.ty) +
 	    " := " + prettyPrintTerm(def.tm);
     } else {

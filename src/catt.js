@@ -2,8 +2,23 @@
 // catt.js - catt javascript routines
 //
 
-import { prettyPrintCtx, prettyPrintDef, CattObject, CattArrow, CattVar, CattSubst, CattCoh } from './catt-syntax.mjs';
+import { prettyPrintCtx, prettyPrintTerm, prettyPrintDef, CattObject, CattArrow, CattVar, CattSubst, CattCoh, CattLet } from './catt-syntax.js';
 
+// Generate the name of a grid composition coherence
+// provided its dimension profile.
+export function gridId(dims) {
+
+    var gridStr = "grid";
+    dims.slice(0,dims.length).forEach(function(dim) {
+        gridStr += dim;
+    });
+
+    return gridStr;
+    
+}
+
+// Generate a grid composition given its
+// dimension profile.
 export function generateGridComp(dims) {
 
     // Initial context consists of a single object
@@ -74,15 +89,8 @@ export function generateGridComp(dims) {
     // console.log("Right Parameters: " + paramsRight);
 
     console.log("Dimension profile: " + dims);
-    
-    var gridPrefStr = "grid";
-    dims.slice(0,dims.length - 1).forEach(function(dim) {
-        console.log("Adding dim: " + dim);
-        gridPrefStr += dim;
-    });
 
-    console.log("Grid string: " + gridPrefStr);
-    
+    var gridPrefStr = gridId(dims.slice(0,dims.length - 1));
     var gridStr = gridPrefStr + dims[dims.length-1];
 
     var srcTyp = new CattSubst(new CattVar(gridPrefStr), paramsLeft);
@@ -94,9 +102,37 @@ export function generateGridComp(dims) {
     
 }
 
-var coh = generateGridComp([3,1,2,2]);
+export function letExample() {
 
+    // Context of a single endomorphism:
+    // (x : *) (f : x -> x)
+    var ctx = [{ ident: "x", type: new CattObject },
+               { ident: "f", type: new CattArrow(new CattVar("x"), new CattVar("x")) }];
+
+    // An identifier 
+    var id = "letEx";
+
+    // 3 fold arrow composite
+    var dims = [3];
+
+    // Return type
+    var ty = new CattArrow(new CattVar("x"), new CattVar("x"));
+
+    // List of arguments to compose
+    var args = [new CattVar("f"), new CattVar("f"), new CattVar("f")]
+
+    // Apply arguments to grid composition coherence
+    var tm = new CattSubst(new CattVar(gridId(dims)), args);
+
+    // Final let declaration
+    var letEx = new CattLet(id, ctx, ty, tm);
+
+    return letEx;
+    
+}
+
+var coh = generateGridComp([2,3]);
 console.log(prettyPrintDef(coh));
-console.log("Finished.");
 
+console.log(prettyPrintDef(letExample()));
 
