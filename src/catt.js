@@ -136,3 +136,65 @@ console.log(prettyPrintDef(coh));
 
 console.log(prettyPrintDef(letExample()));
 
+class Interpreter {
+
+    // signature -> diagram -> CattLet(?)
+    interpret(sig, dia) {
+
+        // If it's an identity diagram, return the identity on the source interpretation
+        if (dia.data.length == 0) {
+            return CATTIDENTITY(interpret(sig, dia.source));
+        }
+
+        // Get the type labels at every singular position
+        let types = this.extract_content(sig, dia);
+        console.log(types);
+
+        // Promote these types to terms of dimension dia.n
+        let terms = types.map();
+        console.log(terms);
+
+        // Build the grid composite of the terms
+        let comp = CATTGRIDCOMPOSITE(terms);
+        console.log(comp);
+
+        return comp;
+    }
+
+    // Convert a deep array of types into terms of dimension n
+    static buildTerms(types, sig, n) {
+
+        // If it's an array of types, then map across it
+        if (types instanceof Array) return types.map(type => Interpreter.buildTerms(type, sig, n));
+
+        // Otherwise it's a variable
+        let id = types;
+        let var = CATTVARIABLE(id);
+
+        // Need to take the identity to obtain a term of dimension n
+        let k = n - sig[id].n;
+        let term = var;
+        for (let i=0; i<j; i++) {
+            term = CATTIDENTITY(term);
+        }
+
+        return term;
+    }
+
+    // Extracts the type content at every singular position
+    extract_content(sig, dia) {
+
+        // Base case, return the type label
+        if (dia.n == 0) return dia.type;
+
+        // Recursive case, look at all the singular slices
+        let r = [];
+        let slices = dia.getSlices();
+        for (let i=0; i<dia.data.length; i++) {
+            let slice = slices[2 * i + 1]; // get singular slice
+            r.push(slice.extract_content(sig, slice));
+        }
+
+    }
+
+}
