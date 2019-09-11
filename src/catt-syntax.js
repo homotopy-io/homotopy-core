@@ -10,20 +10,21 @@ export class CattType { constructor() { } }
 export class CattObject extends CattType {
 
     constructor() { super() }
-
+    
 }
 
 export class CattArrow extends CattType {
 
-    constructor(src, tgt) { 
+    constructor(src, tgt, base) { 
         // _assert(src instanceof CattTerm)
         // _assert(src instanceof CattTerm)
 
 	super()
         this.src = src
         this.tgt = tgt
+        this.base = base
     }
-
+    
 }
 
 // Terms
@@ -51,7 +52,9 @@ export class CattSubst extends CattTerm {
 
 // Definitions
 
-export class CattDefn { constructor() {} }
+export class CattDefn {
+    constructor() {}
+}
 
 export class CattCoh extends CattDefn {
 
@@ -61,7 +64,7 @@ export class CattCoh extends CattDefn {
         this.pd = pd
         this.ty = ty
     }
-
+    
 }
 
 export class CattLet extends CattDefn {
@@ -73,7 +76,24 @@ export class CattLet extends CattDefn {
         this.ty = ty
         this.tm = tm
     }
+    
+}
 
+// Dimension Calculations
+export function dimOf(exp) {
+
+    if (exp instanceof CattObject) {
+        return 0;
+    } else if (exp instanceof CattArrow) {
+        return 1 + dimOf(exp.base);
+    } else if (exp instanceof CattCoh) {
+        return dimOf(exp.ty);
+    } else if (exp instanceof CattLet) {
+        return dimOf(exp.ty);
+    } else {
+        return -1;
+    }
+    
 }
 
 // Pretty printing
@@ -107,7 +127,7 @@ export function prettyPrintType(ty) {
     if (ty instanceof CattObject) {
 	return "*";
     } else if (ty instanceof CattArrow) {
-	return prettyPrintTerm(ty.src) + " -> " + prettyPrintTerm(ty.tgt);
+	return prettyPrintType(ty.base) + " | " + prettyPrintTerm(ty.src) + " -> " + prettyPrintTerm(ty.tgt);
     } else {
 	return "unknown_type";
     }
