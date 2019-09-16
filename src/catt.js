@@ -42,12 +42,13 @@ export function cattLetIdentity(l) {
     var ident = l.ident + "_id";
     var ctx = l.ctx;
     var ty = new CattArrow(l.term, l.term, l.ty);
-    var tm = new CattVar("id" + dimOf(l));
+    // l.tm should also be completely well defined
+    // since the context has not changed.
+    var tm = new CattSubst(new CattVar("id" + dimOf(l)), [l.tm])
 
     return new CattLet(ident, ctx, ty, tm);
     
 }
-
 
 // Generate the name of a grid composition coherence
 // provided its dimension profile.
@@ -180,21 +181,20 @@ console.log(prettyPrintDef(coh));
 class Interpreter {
 
     
-    // signature -> diagram -> CattLet(?)
+    // signature -> diagram -> CattLet
     interpretDiagram(sig, dia) {
 
-      let ctx = this.interpretSignatureDim(sig, dia.n);
-      return this.interpretDiagramOverCtx(ctx, dia);
+        let ctx = this.interpretSignatureDim(sig, dia.n);
+        return this.interpretDiagramOverCtx(ctx, dia);
+        
     }
 
+    // ctx -> diamgram -> CattLet
     interpretDiagramOverCtx(ctx, dia) {
 
         // If it's an identity diagram, return the identity on the source interpretation
         if (dia.data.length == 0) {
-            // Check if identity of this dimension is in environment
-            // If yes, return identity applied to source interpretation
-            // If no, generate from above and then return ....
-            return cattLetIdentity(interpret(sig, dia.source));
+            return cattLetIdentity(interpretDiagramOverCtx(ctx, dia.source));
         }
 
         // Get the type labels at every singular position
@@ -202,9 +202,22 @@ class Interpreter {
         console.log(types);
 
         // Promote these types to terms of dimension dia.n
-        let terms = types.map(function(elt){buildTerms(types, sig, dia.n)});
+        let terms = types.map(function(elt){buildTerms(types, ctx, dia.n)});
         console.log(terms);
 
+        // We flatten the iteratively nested list of terms
+        // and extract the grid profile
+        var prof = [];
+        var tms = terms;
+        
+        while (tms[0] instanceof Array) {
+            
+            // Extract the grid profile
+            // Completely flatten the terms
+            
+        }
+        
+        
         // Build the grid composite of the terms
         let comp = CATTGRIDCOMPOSITE(terms);
         console.log(comp);
@@ -214,7 +227,6 @@ class Interpreter {
     }
 
     interpretSignature(sig) {
-
       return interpretSignatureDim(sig, sig.n);
     }
 
@@ -255,13 +267,12 @@ class Interpreter {
 
         // Otherwise it's a variable
         let id = types;
-        let variable = CATTVARIABLE(id);
+        let variable = new CattVar(id);
 
         // Need to take the identity to obtain a term of dimension n
-        let k = n - sig[id].n;
         let term = variable;
-        for (let i=0; i<j; i++) {
-            term = CATTIDENTITY(term);
+        for (let i=sig[id].n; i<n; i++) {
+            term = new CattSubst(new CattVar("id" + i) , [term]);
         }
 
         return term;
