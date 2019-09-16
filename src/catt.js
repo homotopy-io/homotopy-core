@@ -208,20 +208,19 @@ export class Interpreter {
         console.log(terms);
 
         // We flatten the iteratively nested list of terms
-        // and extract the grid profile
-        var prof = [];
-        var tms = terms;
+        // and extract the grid profile.  
+        // CHECKME: is the direction correct????
+        var prof = [terms.length];
+        var head = terms[0];
         
-        while (tms[0] instanceof Array) {
-            
-            // Extract the grid profile
-            // Completely flatten the terms
-            
+        // Assumes tms non-empty ....
+        while (head instanceof Array) {
+            prof.push(head.length);
+            head = head[0];
         }
         
-        
         // Build the grid composite of the terms
-        let comp = CATTGRIDCOMPOSITE(terms);
+        let comp = new CattSubst(new CattVar(gridId(prof), terms.flat(Infinity)));
         console.log(comp);
 
         return comp;
