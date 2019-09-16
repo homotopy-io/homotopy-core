@@ -35,6 +35,20 @@ export function generateIdentity(d) {
     
 }
 
+// l is a CattLet object.  Return
+// associated identity let definition
+export function cattLetIdentity(l) {
+
+    var ident = l.ident + "_id";
+    var ctx = l.ctx;
+    var ty = new CattArrow(l.term, l.term, l.ty);
+    var tm = new CattVar("id" + dimOf(l));
+
+    return new CattLet(ident, ctx, ty, tm);
+    
+}
+
+
 // Generate the name of a grid composition coherence
 // provided its dimension profile.
 export function gridId(dims) {
@@ -156,21 +170,25 @@ export function letExample() {
     
 }
 
-// var coh = generateGridComp([4,2,2]);
-// console.log(prettyPrintDef(coh));
+var coh = generateGridComp([4,2,2]);
+console.log(prettyPrintDef(coh));
 
-var idCoh = generateIdentity(0);
-console.log(prettyPrintDef(idCoh));
-console.log("Identity has dimension: " + dimOf(idCoh));
+// var idCoh = generateIdentity(0);
+// console.log(prettyPrintDef(idCoh));
+// console.log("Identity has dimension: " + dimOf(idCoh));
 
 class Interpreter {
 
+    
     // signature -> diagram -> CattLet(?)
     interpret(sig, dia) {
 
         // If it's an identity diagram, return the identity on the source interpretation
         if (dia.data.length == 0) {
-            return CATTIDENTITY(interpret(sig, dia.source));
+            // Check if identity of this dimension is in environment
+            // If yes, return identity applied to source interpretation
+            // If no, generate from above and then return ....
+            return cattLetIdentity(interpret(sig, dia.source));
         }
 
         // Get the type labels at every singular position
@@ -178,7 +196,7 @@ class Interpreter {
         console.log(types);
 
         // Promote these types to terms of dimension dia.n
-        let terms = types.map();
+        let terms = types.map(function(elt){buildTerms(types, sig, dia.n)});
         console.log(terms);
 
         // Build the grid composite of the terms
@@ -186,6 +204,7 @@ class Interpreter {
         console.log(comp);
 
         return comp;
+        
     }
 
     // Convert a deep array of types into terms of dimension n
