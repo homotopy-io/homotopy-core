@@ -142,35 +142,6 @@ export function generateGridComp(dims) {
     
 }
 
-export function letExample() {
-
-    // Context of a single endomorphism:
-    // (x : *) (f : x -> x)
-    var ctx = [{ ident: "x", type: new CattObject },
-               { ident: "f", type: new CattArrow(new CattVar("x"), new CattVar("x"), new CattObject) }];
-
-    // An identifier 
-    var id = "letEx";
-
-    // 3 fold arrow composite
-    var dims = [3];
-
-    // Return type
-    var ty = new CattArrow(new CattVar("x"), new CattVar("x"), new CattObject);
-
-    // List of arguments to compose
-    var args = [new CattVar("f"), new CattVar("f"), new CattVar("f")]
-
-    // Apply arguments to grid composition coherence
-    var tm = new CattSubst(new CattVar(gridId(dims)), args);
-
-    // Final let declaration
-    var letEx = new CattLet(id, ctx, ty, tm);
-
-    return letEx;
-    
-}
-
 var coh = generateGridComp([4,2,2]);
 console.log(prettyPrintDef(coh));
 
@@ -218,10 +189,14 @@ class Interpreter {
         }
         
         // Build the grid composite of the terms
-        let comp = new CattSubst(new CattVar(gridId(prof), terms.flat(Infinity)));
+        let comp = new CattSubst(new CattVar(gridId(prof)), terms.flat(Infinity));
         console.log(comp);
 
-        return comp;
+        var src = interpretDiagramOverCtx(ctx, dia.source);
+        var tgt = interpretDiagramOverCtx(ctx, dia.getTarget());
+
+        // assert src.ty == tgt.ty
+        return new CattLet("???", ctx, new CattArrow(src.tm, tgt.tm, src.ty), comp) ;
         
     }
 
