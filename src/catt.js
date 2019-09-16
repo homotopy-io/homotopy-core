@@ -163,7 +163,9 @@ var idCoh = generateIdentity(0);
 console.log(prettyPrintDef(idCoh));
 console.log("Identity has dimension: " + dimOf(idCoh));
 
-class Interpreter {
+export class Interpreter {
+
+    constructor() {};
 
     // signature -> diagram -> CattLet(?)
     interpretDiagram(sig, dia) {
@@ -196,7 +198,7 @@ class Interpreter {
 
     interpretSignature(sig) {
 
-      return interpretSignatureDim(sig, sig.n);
+      return this.interpretSignatureDim(sig, sig.n);
     }
 
     // Compute the context of all types up to dimension n
@@ -205,24 +207,24 @@ class Interpreter {
 
       if (n==0){
         let ctx = [];
-        for (let i=0; i<sig.generators.length; i++) {
-          let gen = sig.generators[i];
+        for (let i=0; i<sig.length; i++) {
+          let gen = sig[i];
           if (gen.n != 0) continue;
-          ctx.push({ident: gen.id, type: new CattObject() });
+          ctx.push({ident: gen.generator.id, type: new CattObject() });
         }
         return ctx;
       }
 
-      let sub_ctx = interpretSignature(sig, n-1);
+      let sub_ctx = this.interpretSignatureDim(sig, n-1);
       let new_ctx = sub_ctx;
-      for (let i=0; i<sig.generators.length; i++) {
-        let gen = sig.generators[i];
+      for (let i=0; i<sig.length; i++) {
+        let gen = sig[i];
         if (gen.n != n) continue;
         let src_i = this.interpretDiagramOverCtx(sub_ctx, gen.source);
         let tgt_i = this.interpretDiagramOverCtx(sub_ctx, gen.target);
         assert(src_i.ty.equals(tgt_i.ty));
         let type = new CattArrow(src_i.tm, tgt_i.tm, src_i.ty);
-        new_ctx = new_ctx.push({ident: gen.id, type});
+        new_ctx = new_ctx.push({ident: gen.generator.id, type});
       }
 
       return new_ctx;
@@ -252,15 +254,17 @@ class Interpreter {
     extract_content(dia) {
 
         // Base case, return the type label
-        if (dia.n == 0) return dia.type;
+        if (dia.n == 0) return dia.id;
 
         // Recursive case, look at all the singular slices
         let r = [];
         let slices = dia.getSlices();
         for (let i=0; i<dia.data.length; i++) {
             let slice = slices[2 * i + 1]; // get singular slice
-            r.push(slice.extract_content(slice));
+            r.push(this.extract_content(slice));
         }
+
+        return r;
 
     }
 
