@@ -192,12 +192,36 @@ export class Interpreter {
         
         // Assumes tms non-empty ....
         while (head instanceof Array) {
+            
             prof.unshift(head.length);
             head = head[0];
+            
         }
         
+        function deepTransposeFlatten(a) {
+
+            function transpose(b) {
+                var c = [];
+                for (i=0;i<b.length;i++) {
+                    for (j=0;j<b[i].length;j++) {
+                        if (c[i] == undefined) c[i] = [];
+                        c[j][i];
+                    }
+                }
+                return c;
+            }
+            
+            if (! (a instanceof Array)) return a;
+            if (! (a[0] instanceof Array)) return a;
+            
+            var b = a.map(el => deepTransposeFlatten(el))
+            return transpose(b).flat()
+            
+        }
+
+        
         // Build the grid composite of the terms
-        let comp = new CattSubst(new CattVar(gridId(prof)), terms.flat(Infinity));
+        let comp = new CattSubst(new CattVar(gridId(prof)), deepTransposeFlatten(terms));
         console.log(comp);
 
         var src = this.interpretDiagramOverCtx(ctx, dia.source);
