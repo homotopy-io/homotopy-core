@@ -41,7 +41,7 @@ export function cattLetIdentity(l) {
 
     var ident = l.ident + "_id";
     var ctx = l.ctx;
-    var ty = new CattArrow(l.term, l.term, l.ty);
+    var ty = new CattArrow(l.tm, l.tm, l.ty);
     // l.tm should also be completely well defined
     // since the context has not changed.
     var tm = new CattSubst(new CattVar("id" + dimOf(l)), [l.tm])
@@ -142,8 +142,8 @@ export function generateGridComp(dims) {
     
 }
 
-var coh = generateGridComp([4,2,2]);
-console.log(prettyPrintDef(coh));
+//var coh = generateGridComp([4,2,2]);
+//console.log(prettyPrintDef(coh));
 
 // var idCoh = generateIdentity(0);
 // console.log(prettyPrintDef(idCoh));
@@ -158,16 +158,22 @@ export class Interpreter {
     interpretDiagram(sig, dia) {
 
         let ctx = this.interpretSignatureDim(sig, dia.n);
-        return this.interpretDiagramOverCtx(ctx, dia);
+        let int = this.interpretDiagramOverCtx(ctx, dia);
+        console.log(prettyPrintDef(int));
+        return int;
         
     }
 
     // ctx -> diamgram -> CattLet
     interpretDiagramOverCtx(ctx, dia) {
 
+        if (dia.n == 0) {
+          return new CattLet("var_" + dia.id, ctx, new CattObject(), new CattVar(dia.id));
+        }
+
         // If it's an identity diagram, return the identity on the source interpretation
         if (dia.data.length == 0) {
-            return cattLetIdentity(interpretDiagramOverCtx(ctx, dia.source));
+            return cattLetIdentity(this.interpretDiagramOverCtx(ctx, dia.source));
         }
 
         // Get the type labels at every singular position
@@ -175,7 +181,7 @@ export class Interpreter {
         console.log(types);
 
         // Promote these types to terms of dimension dia.n
-        let terms = types.map(function(elt){buildTerms(types, ctx, dia.n)});
+        let terms = types.map(function(elt){return Interpreter.buildTerms(elt, ctx, dia.n)});
         console.log(terms);
 
         // We flatten the iteratively nested list of terms
@@ -186,7 +192,7 @@ export class Interpreter {
         
         // Assumes tms non-empty ....
         while (head instanceof Array) {
-            prof.push(head.length);
+            prof.unshift(head.length);
             head = head[0];
         }
         
@@ -194,8 +200,8 @@ export class Interpreter {
         let comp = new CattSubst(new CattVar(gridId(prof)), terms.flat(Infinity));
         console.log(comp);
 
-        var src = interpretDiagramOverCtx(ctx, dia.source);
-        var tgt = interpretDiagramOverCtx(ctx, dia.getTarget());
+        var src = this.interpretDiagramOverCtx(ctx, dia.source);
+        var tgt = this.interpretDiagramOverCtx(ctx, dia.getTarget());
 
         // assert src.ty == tgt.ty
         return new CattLet("???", ctx, new CattArrow(src.tm, tgt.tm, src.ty), comp) ;
@@ -227,27 +233,31 @@ export class Interpreter {
         if (gen.generator.n != n) continue;
         let src_i = this.interpretDiagramOverCtx(sub_ctx, gen.generator.source);
         let tgt_i = this.interpretDiagramOverCtx(sub_ctx, gen.generator.target);
-        assert(src_i.ty.equals(tgt_i.ty));
+        //assert(src_i.ty.equals(tgt_i.ty));
         let type = new CattArrow(src_i.tm, tgt_i.tm, src_i.ty);
-        new_ctx = new_ctx.push({ident: gen.generator.id, type});
+        new_ctx.push({ident: gen.generator.id, type});
       }
 
       return new_ctx;
     }
 
     // Convert a deep array of types into terms of dimension n
-    static buildTerms(types, sig, n) {
+    static buildTerms(types, ctx, n) {
+
+        let x = 1;
+        x ++;
 
         // If it's an array of types, then map across it
-        if (types instanceof Array) return types.map(type => Interpreter.buildTerms(type, sig, n));
+        if (types instanceof Array) return types.map(type => Interpreter.buildTerms(type, ctx, n));
 
         // Otherwise it's a variable
         let id = types;
         let variable = new CattVar(id);
+        let dim = dimOf(ctx.filter(obj => obj.ident == id)[0].type);
 
         // Need to take the identity to obtain a term of dimension n
         let term = variable;
-        for (let i=sig[id].n; i<n; i++) {
+        for (let i=dim; i<n; i++) {
             term = new CattSubst(new CattVar("id" + i) , [term]);
         }
 

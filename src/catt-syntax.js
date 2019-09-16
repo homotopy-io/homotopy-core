@@ -114,7 +114,7 @@ export function prettyPrintTerm(tm) {
 	    substStr += " " + prettyPrintTerm(el) 
 	})
 	
-	return prettyPrintTerm(tm.tm) + substStr
+	return "(" + prettyPrintTerm(tm.tm) + substStr + ")";
 
     } else {
 	return "unknown_term";
