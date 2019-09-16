@@ -166,15 +166,21 @@ console.log("Identity has dimension: " + dimOf(idCoh));
 class Interpreter {
 
     // signature -> diagram -> CattLet(?)
-    interpret(sig, dia) {
+    interpretDiagram(sig, dia) {
+
+      let ctx = this.interpretSignatureDim(sig, dia.n);
+      return this.interpretDiagramOverCtx(ctx, dia);
+    }
+
+    interpretDiagramOverCtx(ctx, dia) {
 
         // If it's an identity diagram, return the identity on the source interpretation
         if (dia.data.length == 0) {
-            return CATTIDENTITY(interpret(sig, dia.source));
+            return CATTIDENTITY(interpretDiagramOverCtx(ctx, dia.source));
         }
 
         // Get the type labels at every singular position
-        let types = this.extract_content(sig, dia);
+        let types = this.extract_content(dia);
         console.log(types);
 
         // Promote these types to terms of dimension dia.n
@@ -186,6 +192,40 @@ class Interpreter {
         console.log(comp);
 
         return comp;
+    }
+
+    interpretSignature(sig) {
+
+      return interpretSignatureDim(sig, sig.n);
+    }
+
+    // Compute the context of all types up to dimension n
+    // sig -> nat -> Array[Object]
+    interpretSignatureDim(sig, n) {
+
+      if (n==0){
+        let ctx = [];
+        for (let i=0; i<sig.generators.length; i++) {
+          let gen = sig.generators[i];
+          if (gen.n != 0) continue;
+          ctx.push({ident: gen.id, type: new CattObject() });
+        }
+        return ctx;
+      }
+
+      let sub_ctx = interpretSignature(sig, n-1);
+      let new_ctx = sub_ctx;
+      for (let i=0; i<sig.generators.length; i++) {
+        let gen = sig.generators[i];
+        if (gen.n != n) continue;
+        let src_i = this.interpretDiagramOverCtx(sub_ctx, gen.source);
+        let tgt_i = this.interpretDiagramOverCtx(sub_ctx, gen.target);
+        assert(src_i.ty.equals(tgt_i.ty));
+        let type = new CattArrow(src_i.tm, tgt_i.tm, src_i.ty);
+        new_ctx = new_ctx.push({ident: gen.id, type});
+      }
+
+      return new_ctx;
     }
 
     // Convert a deep array of types into terms of dimension n
@@ -209,7 +249,7 @@ class Interpreter {
     }
 
     // Extracts the type content at every singular position
-    extract_content(sig, dia) {
+    extract_content(dia) {
 
         // Base case, return the type label
         if (dia.n == 0) return dia.type;
@@ -219,7 +259,7 @@ class Interpreter {
         let slices = dia.getSlices();
         for (let i=0; i<dia.data.length; i++) {
             let slice = slices[2 * i + 1]; // get singular slice
-            r.push(slice.extract_content(sig, slice));
+            r.push(slice.extract_content(slice));
         }
 
     }
