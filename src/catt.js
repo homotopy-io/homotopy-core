@@ -4,9 +4,6 @@
 
 import { dimOf, prettyPrintCtx, prettyPrintTerm, prettyPrintDef, CattObject, CattArrow, CattVar, CattSubst, CattCoh, CattLet } from './catt-syntax.js';
 
-let testarr = [[[1,2],[3,4],[5,6]],[[7,8],[9,10],[11,12]],[[13,14],[15,16],[17,18]],[[19,20],[21,22],[23,24]]];
-
-
 // Generate a d-dimensional identity coherence
 export function generateIdentity(d) {
 
@@ -154,7 +151,12 @@ export function generateGridComp(dims) {
 
 export class Interpreter {
 
-    constructor() {};
+    constructor() {
+
+        //let testarr = [[[1,2],[3,4],[5,6]],[[7,8],[9,10],[11,12]],[[13,14],[15,16],[17,18]],[[19,20],[21,22],[23,24]]];
+        //console.log(Interpreter.deepTransposeFlatten(testarr));
+
+    };
 
     
     // signature -> diagram -> CattLet
@@ -201,30 +203,11 @@ export class Interpreter {
             
         }
         
-        function deepTransposeFlatten(a) {
-
-            function transpose(b) {
-                var c = [];
-                for (i=0;i<b.length;i++) {
-                    for (j=0;j<b[i].length;j++) {
-                        if (c[i] == undefined) c[i] = [];
-                        c[j][i];
-                    }
-                }
-                return c;
-            }
-            
-            if (! (a instanceof Array)) return a;
-            if (! (a[0] instanceof Array)) return a;
-            
-            var b = a.map(el => deepTransposeFlatten(el))
-            return transpose(b).flat()
-            
-        }
+       
 
         
         // Build the grid composite of the terms
-        let comp = new CattSubst(new CattVar(gridId(prof)), deepTransposeFlatten(terms));
+        let comp = new CattSubst(new CattVar(gridId(prof)), Interpreter.deepTransposeFlatten(terms));
         console.log(comp);
 
         var src = this.interpretDiagramOverCtx(ctx, dia.source);
@@ -234,6 +217,27 @@ export class Interpreter {
         return new CattLet("???", ctx, new CattArrow(src.tm, tgt.tm, src.ty), comp) ;
         
     }
+
+    static deepTransposeFlatten(a) {
+
+      function transpose(b) {
+          var c = [];
+          for (let i=0;i<b.length;i++) {
+              for (let j=0;j<b[i].length;j++) {
+                  if (c[j] == undefined) c[j] = [];
+                  c[j][i] = b[i][j];
+              }
+          }
+          return c;
+      }
+      
+      if (! (a instanceof Array)) return a;
+      if (! (a[0] instanceof Array)) return a;
+      
+      var b = a.map(el => Interpreter.deepTransposeFlatten(el))
+      return transpose(b).flat()
+      
+  }
 
     interpretSignature(sig) {
       return this.interpretSignatureDim(sig, sig.n);
@@ -310,3 +314,5 @@ export class Interpreter {
     }
 
 }
+
+
