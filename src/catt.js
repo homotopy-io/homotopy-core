@@ -35,6 +35,21 @@ export function generateIdentity(d) {
     
 }
 
+// l is a CattLet object.  Return
+// associated identity let definition
+export function cattLetIdentity(l) {
+
+    var ident = l.ident + "_id";
+    var ctx = l.ctx;
+    var ty = new CattArrow(l.term, l.term, l.ty);
+    // l.tm should also be completely well defined
+    // since the context has not changed.
+    var tm = new CattSubst(new CattVar("id" + dimOf(l)), [l.tm])
+
+    return new CattLet(ident, ctx, ty, tm);
+    
+}
+
 // Generate the name of a grid composition coherence
 // provided its dimension profile.
 export function gridId(dims) {
@@ -156,29 +171,32 @@ export function letExample() {
     
 }
 
-// var coh = generateGridComp([4,2,2]);
-// console.log(prettyPrintDef(coh));
+var coh = generateGridComp([4,2,2]);
+console.log(prettyPrintDef(coh));
 
-var idCoh = generateIdentity(0);
-console.log(prettyPrintDef(idCoh));
-console.log("Identity has dimension: " + dimOf(idCoh));
+// var idCoh = generateIdentity(0);
+// console.log(prettyPrintDef(idCoh));
+// console.log("Identity has dimension: " + dimOf(idCoh));
 
 export class Interpreter {
 
     constructor() {};
 
-    // signature -> diagram -> CattLet(?)
+    
+    // signature -> diagram -> CattLet
     interpretDiagram(sig, dia) {
 
-      let ctx = this.interpretSignatureDim(sig, dia.n);
-      return this.interpretDiagramOverCtx(ctx, dia);
+        let ctx = this.interpretSignatureDim(sig, dia.n);
+        return this.interpretDiagramOverCtx(ctx, dia);
+        
     }
 
+    // ctx -> diamgram -> CattLet
     interpretDiagramOverCtx(ctx, dia) {
 
         // If it's an identity diagram, return the identity on the source interpretation
         if (dia.data.length == 0) {
-            return CATTIDENTITY(interpretDiagramOverCtx(ctx, dia.source));
+            return cattLetIdentity(interpretDiagramOverCtx(ctx, dia.source));
         }
 
         // Get the type labels at every singular position
@@ -186,18 +204,31 @@ export class Interpreter {
         console.log(types);
 
         // Promote these types to terms of dimension dia.n
-        let terms = types.map();
+        let terms = types.map(function(elt){buildTerms(types, ctx, dia.n)});
         console.log(terms);
 
+        // We flatten the iteratively nested list of terms
+        // and extract the grid profile
+        var prof = [];
+        var tms = terms;
+        
+        while (tms[0] instanceof Array) {
+            
+            // Extract the grid profile
+            // Completely flatten the terms
+            
+        }
+        
+        
         // Build the grid composite of the terms
         let comp = CATTGRIDCOMPOSITE(terms);
         console.log(comp);
 
         return comp;
+        
     }
 
     interpretSignature(sig) {
-
       return this.interpretSignatureDim(sig, sig.n);
     }
 
@@ -209,7 +240,7 @@ export class Interpreter {
         let ctx = [];
         for (let i=0; i<sig.length; i++) {
           let gen = sig[i];
-          if (gen.n != 0) continue;
+          if (gen.generator.n != 0) continue;
           ctx.push({ident: gen.generator.id, type: new CattObject() });
         }
         return ctx;
@@ -219,9 +250,9 @@ export class Interpreter {
       let new_ctx = sub_ctx;
       for (let i=0; i<sig.length; i++) {
         let gen = sig[i];
-        if (gen.n != n) continue;
-        let src_i = this.interpretDiagramOverCtx(sub_ctx, gen.source);
-        let tgt_i = this.interpretDiagramOverCtx(sub_ctx, gen.target);
+        if (gen.generator.n != n) continue;
+        let src_i = this.interpretDiagramOverCtx(sub_ctx, gen.generator.source);
+        let tgt_i = this.interpretDiagramOverCtx(sub_ctx, gen.generator.target);
         assert(src_i.ty.equals(tgt_i.ty));
         let type = new CattArrow(src_i.tm, tgt_i.tm, src_i.ty);
         new_ctx = new_ctx.push({ident: gen.generator.id, type});
@@ -238,13 +269,12 @@ export class Interpreter {
 
         // Otherwise it's a variable
         let id = types;
-        let variable = CATTVARIABLE(id);
+        let variable = new CattVar(id);
 
         // Need to take the identity to obtain a term of dimension n
-        let k = n - sig[id].n;
         let term = variable;
-        for (let i=0; i<j; i++) {
-            term = CATTIDENTITY(term);
+        for (let i=sig[id].n; i<n; i++) {
+            term = new CattSubst(new CattVar("id" + i) , [term]);
         }
 
         return term;
