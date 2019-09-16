@@ -196,11 +196,11 @@ class Interpreter {
 
         // Otherwise it's a variable
         let id = types;
-        let var = CATTVARIABLE(id);
+        let variable = CATTVARIABLE(id);
 
         // Need to take the identity to obtain a term of dimension n
         let k = n - sig[id].n;
-        let term = var;
+        let term = variable;
         for (let i=0; i<j; i++) {
             term = CATTIDENTITY(term);
         }
