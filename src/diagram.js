@@ -183,7 +183,6 @@ export class Diagram {
 
 
   toJSON() {
-
     if (this.n == 0) {
       return {
         n: 0,
@@ -1088,7 +1087,6 @@ export class Diagram {
       return content;
   
     } else { // contraction
-    
       // Last coordinate irrelevant for contraction
       location = location.slice(0, location.length - 1);
 
@@ -1105,87 +1103,13 @@ export class Diagram {
       let normalization = singular.normalizeSingular();
       let backward_limit = normalization.embedding;
       let content = new Content({ n: this.n, forward_limit, backward_limit });
+
       if (!content.typecheck(generators, this)) {
         return { error: "Contraction doesn't typecheck" };
       }
       return content;  
 
     }
-
-  }
-
-  // Find the largest single contraction that type-checks, returning the contracting limit.
-  // If no contractions are possible, return the identity.
-  contract(generators, initial_height) {
-
-    let n = this.n;
-
-    if (initial_height === undefined) initial_height = 0;
-
-    for (let start = initial_height; start < this.data.length - 1; start ++) {
-
-      let valid_finish = null;
-      let valid_contraction = null;
-
-      for (let finish = start + 1; finish < this.data.length; finish ++) {
-
-        // Try to contract from start to finish
-        let singular = this.getSlice({ height: start, regular: false });
-        let upper = [{ diagram: singular, bias: 0 }];
-        let lower = [];
-        for (let i=start; i<finish; i++) {
-          let backward_limit = this.data[i].backward_limit;
-          let forward_limit = this.data[i+1].forward_limit;
-          let regular = backward_limit.rewrite_backward(singular);
-          lower.push({ diagram: regular,
-            left_index:  i - start,     left_limit:  backward_limit,
-            right_index: i + 1 - start, right_limit: forward_limit
-          });
-          singular = forward_limit.rewrite_forward(regular);
-          upper.push({ diagram: singular, bias: 0 });
-        }
-        let contraction = Diagram.multiUnify({ lower, upper, generators, depth: 0 });
-
-        // If the contraction was not good, break out
-        if (contraction.error) break;
-
-        // The contraction seems good so far. Build the contracting limit.
-        let source_data = this.data.slice(start, finish + 1);
-        let sublimits = contraction.limits.slice();
-        let first = start;
-        let components = [new LimitComponent({ n, first, source_data, sublimits })];
-        let source_size = this.data.length;
-        let limit = new Limit({ n, components, source_size });
-
-        // See if this contraction type checks
-        let id = new Limit({ n });
-        let content = new Content({ n, forward_limit: limit, backward_limit: id });
-        if (!content.typecheck(generators, this)) break;
-
-        // The contraction type checks, so remember it
-        valid_finish = finish;
-        valid_contraction = limit;
-
-      }
-
-      // We broke out, so this contraction wasn't valid.
-      
-      // If we never found a good one at this starting height, go to the next starting height
-      if (!valid_contraction) continue;
-
-      // Build the result of the contraction
-      let target = valid_contraction.rewrite_forward(this);
-
-      // Contract recursively
-      let recursive = target.contract(generators, start + 1);
-
-      // Return the final contraction as a composite
-      return recursive.compose(valid_contraction);
-
-    }
-
-    // If we fell through to here, we never found a good contraction, so just return the identity
-    return new Limit({ n });
 
   }
 
