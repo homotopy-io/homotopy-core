@@ -180,13 +180,10 @@ export class DirectedQuotientGraph {
     };
 
     for (const scc of sccs) {
-      // Contract the SCC to a single node.
-      for (const [a, b] of ArrayUtil.consecutive(scc)) {
+      const id = scc.reduce((a, b) => {
         this.quotient(a, b, mergeFunc);
-      }
-
-      // Find the representative of the SCC.
-      const id = this.aliases.find(scc[0]);
+        return a;
+      });
 
       // Set depth of current node
       let depth = 0;
