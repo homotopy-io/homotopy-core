@@ -5,17 +5,14 @@ import { Limit, Content, LimitComponent } from "~/limit";
 import { Generator } from "~/generator";
 import { Monotone } from "~/monotone";
 import { LinearizationError } from "~/util/quotient-graph";
-import { SerializeCyclic } from "~/serialize_flat";
 import { Simplex, Complex } from "~/simplices";
-import glpk from "~/util/glpk"
+import UnionFind from "union-find";
 
 export class Diagram {
 
   constructor(args) {
 
     if (args.bare) return this;
-
-    if (3 ==2) console.log('the universe is ending');
 
     this._t = "D";
     if (_debug) _assert(isNatural(args.n));
@@ -1516,7 +1513,49 @@ export class Diagram {
 
     // Base case
     if (n == 0) {
-      console.log(upper, lower);
+      // Check if there is only one connected component of highest-dimensional
+      // generators in the diagram in the base category given by the spans of
+      // the contraction.
+      const aliases = new UnionFind(0);
+      const upperIds = [];
+      const lowerIds = [];
+      const dimensions = new Map();
+
+      for (const upperElement of upper) {
+        const dimension = generators[upperElement.diagram.id].generator.n;
+        const index = aliases.makeSet();
+        upperIds.push(index);
+        dimensions.set(index, dimension);
+      }
+      
+      for (const lowerElement of lower) {
+        const dimension = generators[lowerElement.diagram.id].generator.n;
+        const index = aliases.makeSet();
+        lowerIds.push(index);
+        dimensions.set(index, dimension);
+
+        const left = upperIds[lowerElement.left_index];
+        if (dimensions.get(left) == dimension) {
+          aliases.link(left, index);
+        }
+
+        const right = upperIds[lowerElement.right_index];
+        if (dimensions.get(right) == dimension) {
+          aliases.link(right, index);
+        }
+      }
+
+      const maxDimension = [...dimensions.values()]
+        .reduce((a, b) => Math.max(a, b), 0);
+
+      const components = [...dimensions]
+        .filter(e => e[1] == maxDimension && aliases.find(e[0]) == e[0]);
+
+      if (components.length != 1) {
+        return {
+          error: `Doesn't contract ${depth > 0 ? `at codimension ${depth}` : ""} due to new contraction check.`
+        };
+      }
 
       // Tabulate the top-dimensional types that appear
       let top_types = [];
@@ -1531,6 +1570,7 @@ export class Diagram {
           + ", multiple top types in base case"
         };
       }
+
       let target_id = top_types[0].generator.id;
 
       // Build the cocone maps
