@@ -4,6 +4,7 @@ import { Limit, Content, LimitComponent } from "~/limit";
 // blah
 import { Generator } from "~/generator";
 import { Monotone } from "~/monotone";
+import { LinearizationError } from "~/util/quotient-graph";
 import { SerializeCyclic } from "~/serialize_flat";
 import { Simplex, Complex } from "~/simplices";
 import glpk from "~/util/glpk"
@@ -1515,6 +1516,7 @@ export class Diagram {
 
     // Base case
     if (n == 0) {
+      console.log(upper, lower);
 
       // Tabulate the top-dimensional types that appear
       let top_types = [];
@@ -1564,11 +1566,18 @@ export class Diagram {
       //let bias = lower[i].bias;
       m_lower.push({ left, right });
     }
-    let m_unif = Monotone.multiUnify({ lower: m_lower, upper: m_upper });
-    if (m_unif.error) {
-      if (depth == 0) return m_unif;
-      m_unif.error += " at codimension " + depth;
-      return m_unif;
+
+    let m_unif;
+    try {
+      m_unif = Monotone.multiUnify({ lower: m_lower, upper: m_upper });
+    } catch (err) {
+      if (err instanceof LinearizationError) {
+        return {
+          error: `${err.message} at codimension ${depth}.`
+        };
+      } else {
+        throw err;
+      }
     }
 
     // Find size of unification set

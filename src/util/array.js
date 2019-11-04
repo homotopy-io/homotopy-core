@@ -2,14 +2,14 @@ export const last = (array) => {
   return array[array.length - 1];
 };
 
-export const reverse = (array) => {
-  let result = [];
-
+export const reverseGen = function*(array) {
   for (let i = array.length - 1; i >= 0; i--) {
-    result.push(array[i]);
+    yield array[i];
   }
+};
 
-  return result;
+export const reverse = (array) => {
+  return [...reverseGen(array)];
 };
 
 export const penultimate = (array) => {
@@ -23,4 +23,20 @@ export const mean = (array) => {
     total += array[i];
   }
   return total / array.length;
-}
+};
+
+export const consecutive = function*(array) {
+  for (let i = 0; i < array.length - 1; i++) {
+    yield [array[i], array[i + 1]];
+  }
+};
+
+export const init = (length, f) => {
+  const array = [];
+
+  for (let i = 0; i < length; i++) {
+    array.push(f(i));
+  }
+
+  return array;
+};

@@ -32,3 +32,4 @@ export const _propertylist = (object, properties) => {
     }
   }
 };
+
