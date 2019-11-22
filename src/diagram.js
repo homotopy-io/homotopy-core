@@ -350,32 +350,6 @@ export class Diagram {
     return data.backward_limit.rewrite_backward(data.forward_limit.rewrite_forward(this));
   }
 
-  // Find the ID of the last cell that appears in the diagram
-  getLastPoint() {
-    if (this.n == 0) return this.type;
-    if (this.data.length == 0) return this.source.getLastPoint();
-
-    let point;
-    for (let i=this.data.length-1; i>=0; i--) {
-      let content = this.data[i];
-      if (content.forward_limit.components.length == 0 && content.backward_limit.components.length == 0) {
-        continue;
-      }
-      let slice_point = this.getSlice({height: i, regular: false}).getLastPoint();
-      if (point === undefined || slice_point.n > point.n) {
-        point = slice_point;
-      }
-    }
-
-    return point;
-
-    /*
-    return this
-      .getSlice({ height: k, regular: false })
-      .getLastPoint();
-    */
-  }
-
   // Get the highest-dimensional id that appears in the diagram.
   // Can be computationally expensive.
   // If there are multiple distinct such, choose the one closest to the origin.
@@ -407,12 +381,8 @@ export class Diagram {
     if (typeof position === 'number') position = [position];
     if (position.length == 0) {
       return this.getMaxId(generators);
-      /*
-      if (this.data.length == 0) position = [0];
-      else position = [1];
-      */
     }
-    if (this.data.length == 0) return this.source.getActionId(position.slice(1), generators); // is this necessary?
+    //if (this.data.length == 0) return this.source.getActionId(position.slice(1), generators); // is this necessary?
     if (_debug) _assert(position.length > 0);
     let [slice, ...rest] = position;
     slice = Math.max(slice, 0);
@@ -426,28 +396,11 @@ export class Diagram {
     // Base case
     if (this.n == 1) {
       return this.getSlice(slice).id;
-
-      /*
-        if (height == null) {
-            let t = 0;
-            let max_dim = -1;
-            for (let i = 0; i < this.data.length; i++) {
-                let type = this.data[i].forward_limit.components[0].type;
-                if (type.n > max_dim) {
-                    max_dim = type.n;
-                    t = i;
-                }
-            }
-            return this.getSlice({ height: t, regular: false }).type;
-        } else {
-            return this.getSlice({ height, regular: false }).type;
-        }
-        */
     }
 
     // Regular subdiagram
     if (slice % 2 == 0) {
-      return this.getSlice(slice).getActionId([], generators);
+      return this.getSlice(slice).getMaxId(generators);
     }
 
     // Singular subdiagram, take the first nontrivial component
@@ -1443,37 +1396,39 @@ export class Diagram {
       const aliases = new UnionFind(0);
       const upperIds = [];
       const lowerIds = [];
-      const dimensions = new Map();
+      const indexToGenerator = new Map();
 
       for (const upperElement of upper) {
-        const dimension = generators[upperElement.diagram.id].generator.n;
+        const generator = generators[upperElement.diagram.id].generator;
         const index = aliases.makeSet();
         upperIds.push(index);
-        dimensions.set(index, dimension);
+        indexToGenerator.set(index, generator);
       }
       
       for (const lowerElement of lower) {
-        const dimension = generators[lowerElement.diagram.id].generator.n;
+        const generator = generators[lowerElement.diagram.id].generator;
         const index = aliases.makeSet();
         lowerIds.push(index);
-        dimensions.set(index, dimension);
+        indexToGenerator.set(index, generator);
 
         const left = upperIds[lowerElement.left_index];
-        if (dimensions.get(left) == dimension) {
+        if (indexToGenerator.get(left).n == generator.n) {
           aliases.link(left, index);
         }
 
         const right = upperIds[lowerElement.right_index];
-        if (dimensions.get(right) == dimension) {
+        if (indexToGenerator.get(right).n == generator.n) {
           aliases.link(right, index);
         }
       }
 
-      const maxDimension = [...dimensions.values()]
-        .reduce((a, b) => Math.max(a, b), 0);
+      const maxDimension = [...indexToGenerator.values()]
+        .reduce((acc, gen) => Math.max(acc, gen.n), 0);
 
-      const components = [...dimensions]
-        .filter(e => e[1] == maxDimension && aliases.find(e[0]) == e[0]);
+      console.log([...indexToGenerator.values()]);
+
+      const components = [...indexToGenerator]
+        .filter(e => e[1].n == maxDimension && aliases.find(e[0]) == e[0]);
 
       if (components.length != 1) {
         return {
@@ -1481,55 +1436,37 @@ export class Diagram {
         };
       }
 
-      // Tabulate the top-dimensional types that appear
-      let top_types = [];
-      for (let i = 0; i < upper.length; i++) Diagram.updateTopTypes(top_types, upper[i].diagram.id, generators);
-      for (let i = 0; i < lower.length; i++) Diagram.updateTopTypes(top_types, lower[i].diagram.id, generators);
-
-      // If there's more than one top-dimensional type, throw an error
-      if (_debug) _assert(top_types.length > 0);
-      if (top_types.length > 1) {
-        return { error: "Doesn't contract"
-          + (depth > 0 ? " at codimension " + depth : "")
-          + ", multiple top types in base case"
-        };
-      }
-
-      let target_id = top_types[0].generator.id;
+      let target_id = components[0][1].id;
 
       // Build the cocone maps
-      let limits = [];
-      for (let i = 0; i < upper.length; i++) {
-        let source_id = upper[i].diagram.id;
-        limits.push(new Limit({ n: 0,
-          components:
-            source_id == target_id
+      let limits = upper.map(upperElement => {
+        const source_id = upperElement.diagram.id;
+        return new Limit({
+          n: 0,
+          components: source_id == target_id
             ? []
-            : [new LimitComponent({ n: 0, source_id, target_id })] 
-          })
-        );
-      }
+            : [new LimitComponent({ n: 0, source_id, target_id })]
+        });
+      });
 
       // Return the final data
       let target = new Diagram({ n: 0, id: target_id });
       return { limits, target };
-      
     }
 
     // Get the unification of the singular monotones
-    let m_upper = [];
-    for (let i = 0; i < upper.length; i++) {
-      m_upper[i] = { size: upper[i].diagram.data.length, bias: upper[i].bias };
-    }
-    let m_lower = [];
-    for (let i = 0; i < lower.length; i++) {
-      let m_left = lower[i].left_limit.getMonotone(lower[i].diagram, upper[lower[i].left_index].diagram);
-      let left = { target: lower[i].left_index, monotone: m_left };
-      let m_right = lower[i].right_limit.getMonotone(lower[i].diagram, upper[lower[i].right_index].diagram);
-      let right = { target: lower[i].right_index, monotone: m_right };
-      //let bias = lower[i].bias;
-      m_lower.push({ left, right });
-    }
+    let m_upper = upper.map(upperElement => ({
+      size: upperElement.diagram.data.length,
+      bias: upperElement.bias,
+    }));
+
+    let m_lower = lower.map(lowerElement => {
+      const m_left = lowerElement.left_limit.getMonotone(lowerElement.diagram, upper[lowerElement.left_index].diagram);
+      const left = { target: lowerElement.left_index, monotone: m_left };
+      const m_right = lowerElement.right_limit.getMonotone(lowerElement.diagram, upper[lowerElement.right_index].diagram);
+      const right = { target: lowerElement.right_index, monotone: m_right };
+      return { left, right };
+    });
 
     let m_unif;
     try {
@@ -1570,35 +1507,6 @@ export class Diagram {
 
     // Return final data
     return { limits, target };
-  }
-
-
-  static updateTopTypes(top_types, id, generators) {
-    if (_debug) _assert(generators);
-    let type = generators[id];
-    if (top_types.indexOf(type) >= 0) return; // type already in list
-    if (top_types.length == 0 || type.generator.n == top_types[0].generator.n) {
-      top_types.push(type);
-      return;
-    }
-    if (type.generator.n < top_types[0].generator.n) return;
-    if (_debug) _assert(type.generator.n > top_types[0].generator.n);
-    top_types.length = 0;
-    top_types.push(type);
-  }
-
-  static updateTypes(types, type) {
-    if (_debug) _assert(type instanceof Generator);
-    if (_debug) _assert(types.type1 != types.type2 || (types.type1 == null && types.type2 == null));
-    if (types.type1 != null && types.type2 != null) _assert(types.type1.n < types.type2.n);
-    if (types.type2 != null) _assert(types.type1 != null);
-    if (types.type1 == type || types.type2 == type) return;
-    if (types.type1 == null) types.type1 = type;
-    else if (types.type2 == null) types.type2 = type;
-    else throw "inconsistent types";
-    if (types.type1 != null && types.type2 != null && types.type1.n > types.type2.n) {
-      [types.type1, types.type2] = [types.type2, types.type1];
-    }
   }
 
   static multiUnifyComponent({ upper, lower }, m_cocone, m_lower, height, generators, depth) {
