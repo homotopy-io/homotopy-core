@@ -1058,7 +1058,8 @@ export class Diagram {
       let content = new Content({ n: this.n, forward_limit, backward_limit });
 
       if (!content.typecheck(generators, this)) {
-        return { error: "Contraction doesn't typecheck" };
+        console.error("Contraction doesn't typecheck");
+        //return { error: "Contraction doesn't typecheck" };
       }
       return content;  
 
@@ -1298,18 +1299,48 @@ export class Diagram {
       let regular = this.getSlice({ height: height + 1, regular: true });
       let D1 = this.getSlice({ height, regular: false });
       let D2 = this.getSlice({ height: height + 1, regular: false });
+      let L0 = this.data[height].forward_limit;
       let L1 = this.data[height].backward_limit;
       let L2 = this.data[height + 1].forward_limit;
+      let L3 = this.data[height + 1].backward_limit;
       /*
       let upper = [D1, D2];
       let lower = [{ diagram: regular, left_index: 0, right_index: 1, left_limit: L1, right_limit: L2, bias: tendency }];
       */
 
-      let upper = [{ diagram: D1, bias: tendency }, {diagram: D2, bias: -tendency }];
+      let upper = [{ diagram: D1, bias: tendency, path: [0] }, {diagram: D2, bias: -tendency, path: [1] }];
       let lower = [{ diagram: regular, left_index: 0, right_index: 1, left_limit: L1, right_limit: L2 }];
 
       let contract_data = Diagram.multiUnify({ lower, upper, generators, depth: 0 });
       if (contract_data.error) return contract_data;
+
+      console.log(generators);
+
+      // Take preimage of limits for all the paths
+      for (let componentPaths of contract_data.paths) {
+        const lowerPaths = componentPaths.filter(path => path[0] == 0).map(path => path.slice(1));
+        const upperPaths = componentPaths.filter(path => path[0] == 1).map(path => path.slice(1));
+
+        const L0Preimage = L0.preimagePaths(lowerPaths);
+        const L1Preimage = L1.preimagePaths(lowerPaths);
+        const L2Preimage = L2.preimagePaths(upperPaths);
+        const L3Preimage = L3.preimagePaths(upperPaths);
+
+        const isTrivial = (preimage) => !preimage || preimage.components.length == 0;
+
+        let error = false;
+
+        error = error || (!isTrivial(L1Preimage) && (!isTrivial(L2Preimage) || !isTrivial(L3Preimage)));
+        error = error || (!isTrivial(L2Preimage) && (!isTrivial(L0Preimage) || !isTrivial(L1Preimage)));
+
+        if (error) {
+          console.error("L0", isTrivial(L0Preimage), L0Preimage);
+          console.error("L1", isTrivial(L1Preimage), L1Preimage);
+          console.error("L2", isTrivial(L2Preimage), L2Preimage);
+          console.error("L3", isTrivial(L3Preimage), L3Preimage);
+          return { error: "More than one non-trivial limit." };
+        }
+      }
 
       // Build the limit to the contracted diagram
       let first = location[0].height;
@@ -1397,35 +1428,34 @@ export class Diagram {
       const upperIds = [];
       const lowerIds = [];
       const indexToGenerator = new Map();
+      const paths = upper.map(u => u.path);
 
       for (const upperElement of upper) {
-        const generator = generators[upperElement.diagram.id].generator;
+        const generator = generators[upperElement.diagram.id];
         const index = aliases.makeSet();
         upperIds.push(index);
-        indexToGenerator.set(index, generator);
+        indexToGenerator.set(index, generator.generator);
       }
-      
+
       for (const lowerElement of lower) {
-        const generator = generators[lowerElement.diagram.id].generator;
+        const generator = generators[lowerElement.diagram.id];
         const index = aliases.makeSet();
         lowerIds.push(index);
-        indexToGenerator.set(index, generator);
+        indexToGenerator.set(index, generator.generator);
 
         const left = upperIds[lowerElement.left_index];
-        if (indexToGenerator.get(left).n == generator.n) {
+        if (indexToGenerator.get(left).n == generator.generator.n) {
           aliases.link(left, index);
         }
 
         const right = upperIds[lowerElement.right_index];
-        if (indexToGenerator.get(right).n == generator.n) {
+        if (indexToGenerator.get(right).n == generator.generator.n) {
           aliases.link(right, index);
         }
       }
 
       const maxDimension = [...indexToGenerator.values()]
         .reduce((acc, gen) => Math.max(acc, gen.n), 0);
-
-      console.log([...indexToGenerator.values()]);
 
       const components = [...indexToGenerator]
         .filter(e => e[1].n == maxDimension && aliases.find(e[0]) == e[0]);
@@ -1451,7 +1481,7 @@ export class Diagram {
 
       // Return the final data
       let target = new Diagram({ n: 0, id: target_id });
-      return { limits, target };
+      return { limits, target, paths: [paths] };
     }
 
     // Get the unification of the singular monotones
@@ -1486,12 +1516,14 @@ export class Diagram {
 
     // For each element of unification set, recursively unify
     let limit_components = [];
+    let paths = [];
     for (let i = 0; i < upper.length; i++) limit_components[i] = [];
     let target_content = [];
     for (let i = 0; i < target_size; i++) {
       let component = Diagram.multiUnifyComponent({ upper, lower }, m_unif, m_lower, i, generators, depth);
       if (component.error) return component;
       target_content.push(component.target_content);
+      paths.push(...component.paths);
       for (let j = 0; j < upper.length; j++) {
         if (!component.cocone_components[j]) continue;
         limit_components[j].push(component.cocone_components[j]);
@@ -1506,7 +1538,7 @@ export class Diagram {
     }
 
     // Return final data
-    return { limits, target };
+    return { limits, target, paths };
   }
 
   static multiUnifyComponent({ upper, lower }, m_cocone, m_lower, height, generators, depth) {
@@ -1530,7 +1562,6 @@ export class Diagram {
       let left_preimage = left_monotone.preimage(upper_ranges[l.left_index]);
       lower_ranges.push(left_preimage);
       let diagram = l.diagram.restrict(left_preimage);
-      let bias = l.bias;
       lower_preimage.push({ left_index, right_index, left_limit, right_limit, diagram /*, bias*/ });
     }
 
@@ -1546,14 +1577,15 @@ export class Diagram {
       for (let j = 0; j < u.data.length; j++) {
         slice_positions.push(upper_exploded.length);
         //upper_exploded.push(u.getSlice({ height: j, regular: false }));
-        upper_exploded.push({diagram: u.getSlice({ height: j, regular: false }), bias});
+        const upper_height = j + upper_ranges[i].first;
+        const upper_path = [...upper[i].path, upper_height];
+        upper_exploded.push({diagram: u.getSlice({ height: j, regular: false }), bias, path: upper_path});
         if (j == 0) continue; // one less regular level than singular level to include
         let diagram = u.getSlice({ height: j, regular: true });
         let left_limit = u.data[j - 1].backward_limit;
         let right_limit = u.data[j].forward_limit;
         let left_index = upper_exploded.length - 2;
         let right_index = upper_exploded.length - 1;
-        //lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index, bias: 0 });
         lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index /*, bias: 0*/ });
       }
       upper_slice_position.push(slice_positions);
@@ -1571,8 +1603,6 @@ export class Diagram {
         let upper_left_offset = upper_ranges[l.left_index].first;
         let left_index = upper_slice_position[l.left_index][m_lower[i].left.monotone[j + lower_offset] - upper_left_offset];
         let right_index = upper_slice_position[l.right_index][m_lower[i].right.monotone[j + lower_offset] - upper_right_offset];
-        let bias = l.bias;
-        //lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index, bias });
         lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index /*, bias*/ });
       }
     }
@@ -1619,7 +1649,7 @@ export class Diagram {
       }
     }
 
-    return { target_content, cocone_components };
+    return { target_content, cocone_components, paths: recursive.paths };
   }
 
   restrict(range) {
