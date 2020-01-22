@@ -1058,7 +1058,7 @@ export class Diagram {
       let content = new Content({ n: this.n, forward_limit, backward_limit });
 
       if (!content.typecheck(generators, this)) {
-        console.error("Contraction doesn't typecheck");
+        //alert("Contraction doesn't typecheck");
         //return { error: "Contraction doesn't typecheck" };
       }
       return content;  
@@ -1299,17 +1299,17 @@ export class Diagram {
       let regular = this.getSlice({ height: height + 1, regular: true });
       let D1 = this.getSlice({ height, regular: false });
       let D2 = this.getSlice({ height: height + 1, regular: false });
-      let L0 = this.data[height].forward_limit;
+      //let L0 = this.data[height].forward_limit;
       let L1 = this.data[height].backward_limit;
       let L2 = this.data[height + 1].forward_limit;
-      let L3 = this.data[height + 1].backward_limit;
+      //let L3 = this.data[height + 1].backward_limit;
       /*
       let upper = [D1, D2];
       let lower = [{ diagram: regular, left_index: 0, right_index: 1, left_limit: L1, right_limit: L2, bias: tendency }];
       */
 
-      let upper = [{ diagram: D1, bias: tendency, path: [0] }, {diagram: D2, bias: -tendency, path: [1] }];
-      let lower = [{ diagram: regular, left_index: 0, right_index: 1, left_limit: L1, right_limit: L2 }];
+      let upper = [{ diagram: D1, bias: tendency, path: [0] }, {diagram: D2, bias: -tendency, path: [2] }];
+      let lower = [{ diagram: regular, left_index: 0, right_index: 1, left_limit: L1, right_limit: L2, path: [1] }];
 
       let contract_data = Diagram.multiUnify({ lower, upper, generators, depth: 0 });
       if (contract_data.error) return contract_data;
@@ -1317,7 +1317,7 @@ export class Diagram {
       console.log(generators);
 
       // Take preimage of limits for all the paths
-      for (let componentPaths of contract_data.paths) {
+      /*for (let componentPaths of contract_data.paths) {
         const lowerPaths = componentPaths.filter(path => path[0] == 0).map(path => path.slice(1));
         const upperPaths = componentPaths.filter(path => path[0] == 1).map(path => path.slice(1));
 
@@ -1334,13 +1334,15 @@ export class Diagram {
         error = error || (!isTrivial(L2Preimage) && (!isTrivial(L0Preimage) || !isTrivial(L1Preimage)));
 
         if (error) {
+          console.error(componentPaths);
           console.error("L0", isTrivial(L0Preimage), L0Preimage);
           console.error("L1", isTrivial(L1Preimage), L1Preimage);
           console.error("L2", isTrivial(L2Preimage), L2Preimage);
           console.error("L3", isTrivial(L3Preimage), L3Preimage);
-          return { error: "More than one non-trivial limit." };
+          alert("More than one non-trivial limit.");
+          //return { error: "More than one non-trivial limit." };
         }
-      }
+      }*/
 
       // Build the limit to the contracted diagram
       let first = location[0].height;
@@ -1430,13 +1432,20 @@ export class Diagram {
       const indexToGenerator = new Map();
       const paths = upper.map(u => u.path);
 
+      let dot = "digraph {\n";
+
+      let dotIndex = 0;
       for (const upperElement of upper) {
         const generator = generators[upperElement.diagram.id];
         const index = aliases.makeSet();
         upperIds.push(index);
         indexToGenerator.set(index, generator.generator);
+
+        dot += `  U${dotIndex} [label = "${generator.name} ${upperElement.path.join(",")}" color="${generator.color}"];\n`;
+        dotIndex += 1;
       }
 
+      dotIndex = 0;
       for (const lowerElement of lower) {
         const generator = generators[lowerElement.diagram.id];
         const index = aliases.makeSet();
@@ -1452,7 +1461,15 @@ export class Diagram {
         if (indexToGenerator.get(right).n == generator.generator.n) {
           aliases.link(right, index);
         }
+
+        dot += `  L${dotIndex} [label = "${generator.name} ${lowerElement.path.join(",")}" color="${generator.color}"];\n`;
+        dot += `  L${dotIndex} -> U${lowerElement.left_index}\n`;
+        dot += `  L${dotIndex} -> U${lowerElement.right_index}\n`;
+        dotIndex += 1;
       }
+
+      dot += "}";
+      console.error(dot);
 
       const maxDimension = [...indexToGenerator.values()]
         .reduce((acc, gen) => Math.max(acc, gen.n), 0);
@@ -1460,13 +1477,77 @@ export class Diagram {
       const components = [...indexToGenerator]
         .filter(e => e[1].n == maxDimension && aliases.find(e[0]) == e[0]);
 
-      if (components.length != 1) {
-        return {
-          error: `Doesn't contract ${depth > 0 ? `at codimension ${depth}` : ""} due to new contraction check.`
-        };
+      let target_info = generators[components[0][1].id];
+      let target_id = components[0][1].id;
+      let target_index = components[0][0];
+      console.log(target_info, components);
+
+      if (components.length > 1) {
+        if (components.every(e => e[1].id == target_id)) {
+          if (!target_info.associative) {
+            return { error: "Contraction would require generator to be associative." };
+          }
+        } else {
+          return {
+            error: `Doesn't contract ${depth > 0 ? `at codimension ${depth}` : ""} due to new contraction check.`
+          };
+        }
       }
 
-      let target_id = components[0][1].id;
+      // Commutativity check
+      if (!target_info.commutative) {
+        let minSuffixByPrefix = new Map();
+        for (let x of [...upper, ...lower]) {
+          let prefix = x.path.slice(0, length - maxDimension + 1);
+          let suffix = x.path.slice(length - maxDimension + 1);
+          let key = prefix.join(",");
+
+          if (!minSuffixByPrefix.has(key)) {
+            minSuffixByPrefix.set(key, suffix);
+          } else {
+            let minSuffix = minSuffixByPrefix.get(key);
+            for (let i = 0; i < minSuffix.length; i++) {
+              minSuffix[i] = Math.min(minSuffix[i], suffix[i]);
+            }
+          }
+        }
+
+        for (const l of lower) {
+          const checkCoordinates = index => {
+            let length = l.path.length;
+
+            let prefix1 = l.path.slice(0, length - maxDimension + 1);
+            let suffix1 = l.path.slice(length - maxDimension + 1);
+            let prefix2 = upper[index].path.slice(0, length - maxDimension + 1);
+            let suffix2 = upper[index].path.slice(length - maxDimension + 1);
+
+            let minSuffix1 = minSuffixByPrefix.get(prefix1.join(","));
+            let minSuffix2 = minSuffixByPrefix.get(prefix2.join(","));
+
+            for (let i = 0; i < suffix1.length; i++) {
+              if (suffix1[i] - minSuffix1[i] != suffix2[i] - minSuffix2[i]) {
+                return false;
+              }
+            }
+
+            return true;
+          };
+
+          let left_is_target = aliases.find(l.left_index) == target_index;
+          let right_is_target = aliases.find(l.right_index) == target_index;
+
+          let valid = (
+            (!left_is_target || checkCoordinates(l.left_index)) &&
+            (!right_is_target || checkCoordinates(l.right_index))
+          );
+
+          if (!valid) {
+            return {
+              error: "Contraction would permute the boundary of a non-commutative generator."
+            };
+          }
+        }
+      }
 
       // Build the cocone maps
       let limits = upper.map(upperElement => {
@@ -1577,7 +1658,7 @@ export class Diagram {
       for (let j = 0; j < u.data.length; j++) {
         slice_positions.push(upper_exploded.length);
         //upper_exploded.push(u.getSlice({ height: j, regular: false }));
-        const upper_height = j + upper_ranges[i].first;
+        const upper_height = 2 * j + 1 + 2 * upper_ranges[i].first;
         const upper_path = [...upper[i].path, upper_height];
         upper_exploded.push({diagram: u.getSlice({ height: j, regular: false }), bias, path: upper_path});
         if (j == 0) continue; // one less regular level than singular level to include
@@ -1586,7 +1667,10 @@ export class Diagram {
         let right_limit = u.data[j].forward_limit;
         let left_index = upper_exploded.length - 2;
         let right_index = upper_exploded.length - 1;
-        lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index /*, bias: 0*/ });
+
+        const lower_height = 2 * j + 2 * upper_ranges[i].first;
+        const lower_path = [...upper[i].path, lower_height];
+        lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index, path: lower_path /*, bias: 0*/ });
       }
       upper_slice_position.push(slice_positions);
     }
@@ -1603,7 +1687,9 @@ export class Diagram {
         let upper_left_offset = upper_ranges[l.left_index].first;
         let left_index = upper_slice_position[l.left_index][m_lower[i].left.monotone[j + lower_offset] - upper_left_offset];
         let right_index = upper_slice_position[l.right_index][m_lower[i].right.monotone[j + lower_offset] - upper_right_offset];
-        lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index /*, bias*/ });
+        const lower_height = 2 * j + 1 + 2 * lower_ranges[i].first;
+        const lower_path = [...lower[i].path, lower_height];
+        lower_exploded.push({ diagram, left_limit, right_limit, left_index, right_index, path: lower_path /*, bias*/ });
       }
     }
     let exploded = { upper: upper_exploded, lower: lower_exploded, generators, depth: depth + 1 };

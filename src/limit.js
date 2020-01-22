@@ -1724,11 +1724,9 @@ export class Limit /*extends Array*/ {
      at singular height n.
      If this is 'undefined', we take the empty subset at height n.
      If this is 'null', we take the full subset at height n. 
-
-     If partial is true, limit components can be split in parts.
   */
 
-  restrictToPreimage(subset, partial = false) {
+  restrictToPreimage(subset) {
     // Return everything
     if (subset === null) return this; //{ /*source, target, limit };
 
@@ -1763,7 +1761,6 @@ export class Limit /*extends Array*/ {
     }
 
     // Choose which components to use
-    // TODO: It should be possible to slice through components at the beginning and end.
     let targets = this.getComponentTargets();
     let components = [];
     for (let i=0; i<targets.length; i++) {
@@ -1782,7 +1779,7 @@ export class Limit /*extends Array*/ {
       for (let j=0; j<component.source_data.length; j++) {
         //let source_height = component.first + j;
 
-        let restrict_component = component.sublimits[j].restrictToPreimage(subset[target_height], partial);
+        let restrict_component = component.sublimits[j].restrictToPreimage(subset[target_height]);
 
         // If the new component will be the identity, we don't need to do anything
         if (j == 0 && component.source_data.length == 1 && restrict_component.components.length == 0) {
@@ -1791,12 +1788,8 @@ export class Limit /*extends Array*/ {
         }
 
         let pullback_subset = component.sublimits[j].pullbackSubset(subset[target_height]);
-        let restrict_forward = component.source_data[j].forward_limit.restrictToPreimage(pullback_subset, partial);
-        let restrict_backward = component.source_data[j].backward_limit.restrictToPreimage(pullback_subset, partial);
-
-        if (restrict_forward.components.length == 0 && restrict_backward.components.length == 0 && partial) {
-          continue;
-        }
+        let restrict_forward = component.source_data[j].forward_limit.restrictToPreimage(pullback_subset);
+        let restrict_backward = component.source_data[j].backward_limit.restrictToPreimage(pullback_subset);
 
         source_data.push(new Content({ n: this.n - 1, forward_limit: restrict_forward, backward_limit: restrict_backward }));
         sublimits.push(restrict_component);
@@ -1806,20 +1799,14 @@ export class Limit /*extends Array*/ {
       if (trivial) continue;
 
       // Build the new target_data
-      let restrict_forward = component.target_data.forward_limit.restrictToPreimage(subset[target_height], partial);
-      let restrict_backward = component.target_data.backward_limit.restrictToPreimage(subset[target_height], partial);
+      let restrict_forward = component.target_data.forward_limit.restrictToPreimage(subset[target_height]);
+      let restrict_backward = component.target_data.backward_limit.restrictToPreimage(subset[target_height]);
       let target_data = new Content({ n: this.n - 1, forward_limit: restrict_forward, backward_limit: restrict_backward });
       //let first = component.first - range.first;
       let first = component.first - preimage.first;
 
       // Build the new LimitComponent
       let limit_component = new LimitComponent({ n: component.n, first, source_data, target_data, sublimits });
-
-      // Skip identity components that can be produced when the source data is
-      // restricted in lower dimensions.
-      if (limit_component.isTrivial() && partial) {
-        continue;
-      }
       
       components.push(limit_component);
     }
