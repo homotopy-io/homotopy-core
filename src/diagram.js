@@ -1516,6 +1516,13 @@ export class Diagram {
           const checkCoordinates = index => {
             let length = l.path.length;
 
+            if (
+              aliases.find(index) == target_index ||
+              upper[index].diagram.id != l.diagram.id
+            ) {
+              return true;
+            }
+
             let prefix1 = l.path.slice(0, length - maxDimension + 1);
             let suffix1 = l.path.slice(length - maxDimension + 1);
             let prefix2 = upper[index].path.slice(0, length - maxDimension + 1);
@@ -1533,15 +1540,7 @@ export class Diagram {
             return true;
           };
 
-          let left_is_target = aliases.find(l.left_index) == target_index;
-          let right_is_target = aliases.find(l.right_index) == target_index;
-
-          let valid = (
-            (!left_is_target || checkCoordinates(l.left_index)) &&
-            (!right_is_target || checkCoordinates(l.right_index))
-          );
-
-          if (!valid) {
+          if (!checkCoordinates(l.left_index) || !checkCoordinates(l.right_index)) {
             return {
               error: "Contraction would permute the boundary of a non-commutative generator."
             };
