@@ -2920,6 +2920,7 @@ export class Limit /*extends Array*/ {
 
   }
 
+  // Takes a deep coordinate and pushes it forward along the chosen limit
   updateSliceForward(slice) {
     if (_debug) _assert(slice instanceof Array);
     if (this.components.length == 0) return slice;
